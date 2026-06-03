@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Stack</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0d0f14; overflow: hidden;
+      font-family: ui-sans-serif, system-ui, sans-serif; }
+    #app { display: flex; align-items: center; justify-content: center; height: 100%; }
+    #wrap { position: relative; width: 100%; max-width: 420px; height: 100dvh; max-height: 720px; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: manipulation; }
+    #hud { position: absolute; top: 18px; left: 0; right: 0; text-align: center;
+      pointer-events: none; color: #fff; font-size: 52px; font-weight: 500; }
+    #screen { position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 14px; text-align: center; cursor: pointer;
+      color: #e8eaf0; background: radial-gradient(120% 80% at 50% 30%, rgba(40,52,78,.55), rgba(13,15,20,.92)); }
+    #screen.hidden { display: none; }
+    #screen h1 { margin: 0; font-size: 46px; font-weight: 500; letter-spacing: 6px; color: #fff; }
+    #screen p { margin: 0; color: #9aa3b8; max-width: 280px; line-height: 1.6; }
+    .cta { padding: 11px 26px; border-radius: 999px; background: #fff; color: #0d0f14; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="wrap">
+      <canvas id="game"></canvas>
+      <div id="hud" style="opacity:0">0</div>
+      <div id="screen">
+        <h1>STACK</h1>
+        <p>Tap, click, or press space to drop. Line it up, don't miss.</p>
+        <div class="cta">Tap to start</div>
+      </div>
+    </div>
+  </div>
+  <script type="module">
+    import { createGame } from "./stack.ts";
+    const hud = document.getElementById("hud");
+    const screen = document.getElementById("screen");
+    const game = createGame(
+      document.getElementById("game"),
+      (n) => { hud.textContent = String(n); },
+      (score) => {
+        screen.querySelector("h1").textContent = "GAME OVER";
+        screen.querySelector("p").innerHTML = `You stacked <b style="color:#fff">${score}</b> blocks.`;
+        screen.querySelector(".cta").textContent = "Tap to retry";
+        screen.classList.remove("hidden"); hud.style.opacity = "0";
+      }
+    );
+    const onTap = (e) => {
+      e.preventDefault();
+      const wasPlaying = game.getPhase() === "playing";
+      game.tap();
+      if (game.getPhase() === "playing") { screen.classList.add("hidden"); hud.style.opacity = "1"; }
+    };
+    document.getElementById("game").addEventListener("pointerdown", onTap);
+    screen.addEventListener("pointerdown", onTap);
+    addEventListener("keydown", (e) => { if (e.code === "Space" || e.code === "Enter") onTap(e); });
+  </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Stack",
+    "slug": "stack-game",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0d0f14",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.stack.game"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0d0f14"
+      },
+      "package": "com.stack.game"
+    },
+    "plugins": []
+  }
+}
