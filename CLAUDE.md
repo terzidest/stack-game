@@ -261,10 +261,9 @@ A change is done when:
 - [ ] **APIs verified, not guessed** — any new Skia/Reanimated/Expo API checked
       against the installed version; native deps added via `npx expo install`,
       never raw `npm install`.
-- [ ] **Domain logic is tested** — *once a test harness lands* (see Testing),
-      new mechanics/scoring/level/difficulty functions get unit tests and the
-      simulation stays deterministic for the same inputs. Until then, this is
-      the standing TODO that unblocks the rest of this line.
+- [ ] **Domain logic is tested** — new mechanics/scoring/level/difficulty
+      functions get unit tests (`npm test`), and the simulation stays
+      deterministic for the same inputs.
 - [ ] **Validated on device** — built via the EAS dev build and checked on real
       hardware (prefer a low-end Android); holds frame rate under a tall tower,
       and haptics/sound/feel behave as intended.
@@ -278,6 +277,21 @@ A change is done when:
 and a sequence of `dt`/drops, assert the resulting state. This is the highest-
 value testing surface; the runtime/render layers are best verified by playing.
 
+**Harness:** Jest with `babel-jest` in a Node environment — no React Native,
+no Skia. The Reanimated babel plugin is disabled under test (see
+`babel.config.js`), so `"worklet"` functions run as plain JS. Tests live next
+to the code as `*.test.ts` (e.g. `src/game/logic.test.ts`) and import the Jest
+globals from `@jest/globals`. Run with:
+
+```bash
+npm test                  # full suite
+npx jest --watch          # watch mode
+```
+
+Keep tests deterministic: the simulation uses no randomness (visual jitter
+lives in `render/`), so the same `World` + `dt` sequence must always produce
+the same state.
+
 ---
 
 ## Commands
@@ -285,6 +299,7 @@ value testing surface; the runtime/render layers are best verified by playing.
 ```bash
 npx expo start            # dev server (use a development build; Skia needs native code)
 npx tsc --noEmit          # typecheck
+npm test                  # run the domain unit tests (Jest, no RN)
 npx expo install <pkg>    # add a dependency (keeps SDK alignment)
 eas build / eas submit    # cloud build + store submission
 ```

@@ -20,7 +20,9 @@ The core game on the correct architecture.
 - ✅ Phase state machine (idle / playing / over)
 - ✅ UI-thread render loop: shared-value world, `useFrameCallback` +
   `.modify()`, immediate-mode `Picture` in `useDerivedValue`
-- ✅ Project docs: `CLAUDE.md`, `ARCHITECTURE.md`, `ROADMAP.md`
+- ✅ Project docs: `CLAUDE.md`, `ARCHITECTURE.md`, `ROADMAP.md`, `README.md`
+- ✅ Test harness: Jest (Node, no RN) with deterministic domain tests for
+  `dropBlock` / `updateWorld`
 
 **Exit:** game runs with no per-frame JS-thread work. *(met)*
 

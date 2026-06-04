@@ -43,6 +43,7 @@ Other commands:
 
 ```bash
 npx tsc --noEmit          # typecheck
+npm test                  # run domain unit tests (Jest, no React Native)
 npx expo install <pkg>    # add a dependency (keeps SDK alignment)
 ```
 
