@@ -16,6 +16,8 @@
       },
       "package": "com.stack.game"
     },
-    "plugins": []
+    "plugins": [
+      "expo-audio"
+    ]
   }
 }
