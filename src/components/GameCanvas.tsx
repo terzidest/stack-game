@@ -8,8 +8,10 @@ import {
   runOnJS,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import * as Haptics from "expo-haptics";
 
 import type { Phase } from "../game/types";
+import type { DropResult } from "../game/logic";
 import {
   freshWorld,
   spawnCurrent,
@@ -17,19 +19,36 @@ import {
   dropBlock,
 } from "../game/logic";
 import { drawWorld } from "../game/renderer";
+import { useGameSounds } from "../game/sound";
+
+// Reused across every frame — no per-frame allocation.
+const _rec = Skia.PictureRecorder();
 
 interface Props {
   phase: Phase;
   onPhaseChange: (phase: Phase) => void;
   onScoreChange: (score: number) => void;
+  onComboChange: (combo: number) => void;
+}
+
+function triggerHapticJS(result: DropResult): void {
+  if (result === "placed") {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  } else if (result === "perfect") {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  } else {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+  }
 }
 
 export default function GameCanvas({
   phase,
   onPhaseChange,
   onScoreChange,
+  onComboChange,
 }: Props) {
   const { width: W, height: H } = useWindowDimensions();
+  const { playDrop, playPerfect } = useGameSounds();
 
   // All per-frame game state lives in a single shared value.
   const world = useSharedValue(freshWorld(W, H));
@@ -56,6 +75,18 @@ export default function GameCanvas({
     (s: number) => onScoreChange(s),
     [onScoreChange]
   );
+  const setCombo = useCallback(
+    (c: number) => onComboChange(c),
+    [onComboChange]
+  );
+
+  const playSoundJS = useCallback(
+    (result: DropResult) => {
+      if (result === "perfect") playPerfect();
+      else if (result === "placed") playDrop();
+    },
+    [playDrop, playPerfect]
+  );
 
   // ---- GAME LOOP (UI thread, every frame) ----
   const frameCallback = useCallback(
@@ -63,7 +94,6 @@ export default function GameCanvas({
       "worklet";
       if (phaseRef.value !== "playing") return;
       const dt = Math.min(50, info.timeSincePreviousFrame ?? 16);
-      // .modify() marks the shared value dirty so useDerivedValue re-runs
       world.modify((w) => {
         "worklet";
         updateWorld(w, W, H, dt);
@@ -77,10 +107,9 @@ export default function GameCanvas({
   // ---- SKIA PICTURE (UI thread, re-recorded when world is marked dirty) ----
   const picture = useDerivedValue(() => {
     "worklet";
-    const rec = Skia.PictureRecorder();
-    const c = rec.beginRecording(Skia.XYWHRect(0, 0, W, H));
+    const c = _rec.beginRecording(Skia.XYWHRect(0, 0, W, H));
     drawWorld(c, world.value, W, H);
-    return rec.finishRecordingAsPicture();
+    return _rec.finishRecordingAsPicture();
   }, [W, H]);
 
   // ---- TAP HANDLER (memoized) ----
@@ -89,21 +118,21 @@ export default function GameCanvas({
       Gesture.Tap().onEnd(() => {
         "worklet";
         if (phaseRef.value === "playing") {
-          // Drop the current block. dropBlock mutates in place and returns
-          // the result; .modify() then marks the shared value dirty.
-          const result = dropBlock(world.value, W, H);
+          let result: DropResult = "miss";
           world.modify((w) => {
             "worklet";
+            result = dropBlock(w, W, H);
             return w;
           }, true);
 
           if (result === "miss") {
             phaseRef.value = "over";
             runOnJS(setPhase)("over");
-            runOnJS(setScore)(world.value.score);
-          } else {
-            runOnJS(setScore)(world.value.score);
           }
+          runOnJS(setScore)(world.value.score);
+          runOnJS(setCombo)(result === "miss" ? 0 : world.value.combo);
+          runOnJS(triggerHapticJS)(result);
+          runOnJS(playSoundJS)(result);
         } else {
           // idle or over → start a new game
           const w = freshWorld(W, H);
@@ -112,9 +141,10 @@ export default function GameCanvas({
           phaseRef.value = "playing";
           runOnJS(setPhase)("playing");
           runOnJS(setScore)(0);
+          runOnJS(setCombo)(0);
         }
       }),
-    [W, H, setPhase, setScore]
+    [W, H, setPhase, setScore, setCombo, playSoundJS]
   );
 
   return (

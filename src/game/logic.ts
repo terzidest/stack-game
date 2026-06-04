@@ -30,6 +30,8 @@ export function freshWorld(W: number, H: number): World {
     pulses: [],
     cameraY: 0,
     score: 0,
+    shake: 0,
+    combo: 0,
   };
 }
 
@@ -71,6 +73,19 @@ export function updateWorld(
   );
   world.cameraY += (target - world.cameraY) * Math.min(1, dt * 0.008);
 
+  // Squash decay on all blocks
+  for (let i = 0; i < world.blocks.length; i++) {
+    const b = world.blocks[i];
+    if (b.squash) {
+      b.squash = Math.max(0, b.squash - dt / 350);
+    }
+  }
+
+  // Shake decay
+  if (world.shake > 0) {
+    world.shake = Math.max(0, world.shake - dt * 0.025);
+  }
+
   // Debris physics
   const keepDebris: Debris[] = [];
   for (let i = 0; i < world.debris.length; i++) {
@@ -106,7 +121,10 @@ export function dropBlock(world: World, W: number, H: number): DropResult {
 
   // Perfect drop: snap to full width, no shrink
   if (Math.abs(c.x - below.x) <= PERFECT) {
-    world.blocks.push({ x: below.x, width: below.width });
+    world.combo++;
+    const intensity = 1 + Math.min(world.combo - 1, 4) * 0.4;
+    const newBlock: import("./types").Block = { x: below.x, width: below.width, squash: 1 };
+    world.blocks.push(newBlock);
     const idx = world.blocks.length - 1;
     const sy = screenTop(idx, world, H);
     world.pulses.push({
@@ -114,6 +132,7 @@ export function dropBlock(world: World, W: number, H: number): DropResult {
       sy,
       w: below.width,
       life: 1,
+      intensity,
     });
     world.score++;
     spawnCurrent(world);
@@ -125,7 +144,14 @@ export function dropBlock(world: World, W: number, H: number): DropResult {
   const right = Math.min(c.x + c.width, below.x + below.width);
   const overlap = right - left;
 
-  if (overlap <= 0) return "miss";
+  if (overlap <= 0) {
+    world.shake = 10;
+    world.combo = 0;
+    return "miss";
+  }
+
+  world.combo = 0;
+  world.shake = 4;
 
   const idx = world.blocks.length;
   const placedTop = screenTop(idx, world, H);
@@ -161,7 +187,7 @@ export function dropBlock(world: World, W: number, H: number): DropResult {
     });
   }
 
-  world.blocks.push({ x: left, width: overlap });
+  world.blocks.push({ x: left, width: overlap, squash: 1 });
   world.score++;
   spawnCurrent(world);
   return "placed";

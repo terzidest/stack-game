@@ -3,6 +3,7 @@ export type Phase = "idle" | "playing" | "over";
 export interface Block {
   x: number;
   width: number;
+  squash?: number; // 1 = just landed, decays to 0 over ~350ms
 }
 
 export interface Current extends Block {
@@ -27,6 +28,7 @@ export interface Pulse {
   sy: number;
   w: number;
   life: number;
+  intensity: number; // scales flash brightness & grow with combo
 }
 
 export interface World {
@@ -36,4 +38,6 @@ export interface World {
   pulses: Pulse[];
   cameraY: number;
   score: number;
+  shake: number; // pixel amplitude, decays to 0
+  combo: number; // perfect-drop streak
 }

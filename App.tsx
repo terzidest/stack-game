@@ -11,9 +11,11 @@ import Overlay from "./src/components/Overlay";
 export default function App() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
 
   const handlePhaseChange = useCallback((p: Phase) => setPhase(p), []);
   const handleScoreChange = useCallback((s: number) => setScore(s), []);
+  const handleComboChange = useCallback((c: number) => setCombo(c), []);
 
   return (
     <GestureHandlerRootView style={styles.root}>
@@ -22,8 +24,9 @@ export default function App() {
           phase={phase}
           onPhaseChange={handlePhaseChange}
           onScoreChange={handleScoreChange}
+          onComboChange={handleComboChange}
         />
-        <HUD score={score} phase={phase} />
+        <HUD score={score} combo={combo} phase={phase} />
         <Overlay phase={phase} score={score} />
         <StatusBar style="light" hidden />
       </View>
