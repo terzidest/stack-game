@@ -236,19 +236,38 @@ no change to the loop, the threading, or the rendering strategy.
 
 ---
 
-## Conventions checklist (respect on every change)
+## Definition of done
 
-- Mutate the world **only** inside `.modify()`; never touch `.value` props
-  directly.
-- **No `runOnJS` or `setState` in the per-frame loop.** Tap frequency only.
-- Mark every UI-thread function `"worklet"` (`domain/`, `render/`).
-- **No React / Skia / Expo imports in `domain/`.**
-- Scale all motion by `dt`.
-- Keep tuning in `constants.ts` / `levels.ts`, not inline literals.
-- Hoist Skia objects to module scope; no per-frame allocation.
-- Use `npx expo install` for native deps; verify Skia/Reanimated APIs against
-  installed versions before using new ones.
-- Keep `services/` side effects out of the simulation.
+A change is done when:
+
+- [ ] **Thread model intact** — no `setState` or `runOnJS` in the per-frame
+      path; the world is mutated only inside `world.modify()`; `runOnJS` is
+      used only at tap/transition frequency.
+- [ ] **Worklets marked** — every function that runs on the UI thread (the
+      simulation and renderer in `game/`, and their helpers) carries
+      `"worklet"`.
+- [ ] **Domain stays pure** — no React, Skia, or Expo imports in the
+      simulation (`logic.ts` today; `domain/` once split). Layer dependency
+      direction respected: the simulation depends on nothing.
+- [ ] **Motion uses delta time** — all movement/decay/physics scaled by `dt`.
+- [ ] **No per-frame allocation on the hot path** — Skia `Paint` /
+      `PictureRecorder` / `Color` reused from module scope, not allocated per
+      frame.
+- [ ] **Tuning lives in data** — new constants in `constants.ts` (and
+      `levels.ts` once it exists), not inline magic numbers.
+- [ ] **Types updated** — `types.ts` reflects any new `World`/entity fields;
+      no `any`.
+- [ ] **Typecheck clean** — `npx tsc --noEmit` passes with no new errors.
+- [ ] **APIs verified, not guessed** — any new Skia/Reanimated/Expo API checked
+      against the installed version; native deps added via `npx expo install`,
+      never raw `npm install`.
+- [ ] **Domain logic is tested** — *once a test harness lands* (see Testing),
+      new mechanics/scoring/level/difficulty functions get unit tests and the
+      simulation stays deterministic for the same inputs. Until then, this is
+      the standing TODO that unblocks the rest of this line.
+- [ ] **Validated on device** — built via the EAS dev build and checked on real
+      hardware (prefer a low-end Android); holds frame rate under a tall tower,
+      and haptics/sound/feel behave as intended.
 
 ---
 
