@@ -1,8 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import { StyleSheet, useWindowDimensions } from "react-native";
-import { Canvas, Picture, createPicture } from "@shopify/react-native-skia";
-import type { SkPicture } from "@shopify/react-native-skia";
-import { useFrameCallback, runOnJS } from "react-native-reanimated";
+import { Canvas, Picture, Skia } from "@shopify/react-native-skia";
+import {
+  useSharedValue,
+  useFrameCallback,
+  useDerivedValue,
+  runOnJS,
+} from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 import type { Phase } from "../game/types";
@@ -27,87 +31,96 @@ export default function GameCanvas({
 }: Props) {
   const { width: W, height: H } = useWindowDimensions();
 
-  // Mutable game state in a ref — mutated every frame, never triggers re-renders.
-  const worldRef = useRef(freshWorld(W, H));
-  const phaseRef = useRef<Phase>("idle");
-  const lastT = useRef(performance.now());
+  // All per-frame game state lives in a single shared value.
+  const world = useSharedValue(freshWorld(W, H));
+  const phaseRef = useSharedValue<Phase>("idle");
 
-  // Rendered picture (rendering artifact, not game state)
-  const [pic, setPic] = useState<SkPicture>(() =>
-    createPicture(
-      (canvas) => drawWorld(canvas, freshWorld(W, H), W, H),
-      { width: W, height: H }
-    )
-  );
-
-  // Keep phaseRef in sync with React state
+  // Sync React phase → worklet-readable shared value
   useEffect(() => {
-    phaseRef.current = phase;
+    phaseRef.value = phase;
   }, [phase]);
 
-  // Re-init on dimension changes
+  // Re-init world on dimension change
   useEffect(() => {
-    if (phaseRef.current !== "playing") {
-      worldRef.current = freshWorld(W, H);
-      lastT.current = performance.now();
+    if (phaseRef.value !== "playing") {
+      world.value = freshWorld(W, H);
     }
   }, [W, H]);
 
-  // ---- GAME TICK (runs on JS thread, called every frame) ----
-  const tick = useCallback(() => {
-    const now = performance.now();
-    const dt = Math.min(50, now - lastT.current);
-    lastT.current = now;
+  // Callbacks bridged to JS thread (only on tap, never per-frame)
+  const setPhase = useCallback(
+    (p: Phase) => onPhaseChange(p),
+    [onPhaseChange]
+  );
+  const setScore = useCallback(
+    (s: number) => onScoreChange(s),
+    [onScoreChange]
+  );
 
-    if (phaseRef.current === "playing") {
-      updateWorld(worldRef.current, W, H, dt);
-    }
+  // ---- GAME LOOP (UI thread, every frame) ----
+  const frameCallback = useCallback(
+    (info: { timeSincePreviousFrame: number | null }) => {
+      "worklet";
+      if (phaseRef.value !== "playing") return;
+      const dt = Math.min(50, info.timeSincePreviousFrame ?? 16);
+      // .modify() marks the shared value dirty so useDerivedValue re-runs
+      world.modify((w) => {
+        "worklet";
+        updateWorld(w, W, H, dt);
+        return w;
+      });
+    },
+    [W, H]
+  );
+  useFrameCallback(frameCallback);
 
-    setPic(
-      createPicture(
-        (canvas) => drawWorld(canvas, worldRef.current, W, H),
-        { width: W, height: H }
-      )
-    );
+  // ---- SKIA PICTURE (UI thread, re-recorded when world is marked dirty) ----
+  const picture = useDerivedValue(() => {
+    "worklet";
+    const rec = Skia.PictureRecorder();
+    const c = rec.beginRecording(Skia.XYWHRect(0, 0, W, H));
+    drawWorld(c, world.value, W, H);
+    return rec.finishRecordingAsPicture();
   }, [W, H]);
 
-  // ---- FRAME CALLBACK (UI-thread clock → bridges to JS tick) ----
-  useFrameCallback(() => {
-    "worklet";
-    runOnJS(tick)();
-  });
+  // ---- TAP HANDLER (memoized) ----
+  const tap = useMemo(
+    () =>
+      Gesture.Tap().onEnd(() => {
+        "worklet";
+        if (phaseRef.value === "playing") {
+          // Drop the current block. dropBlock mutates in place and returns
+          // the result; .modify() then marks the shared value dirty.
+          const result = dropBlock(world.value, W, H);
+          world.modify((w) => {
+            "worklet";
+            return w;
+          }, true);
 
-  // ---- TAP HANDLER ----
-  const handleTap = useCallback(() => {
-    if (phaseRef.current === "playing") {
-      const result = dropBlock(worldRef.current, W, H);
-      if (result === "miss") {
-        phaseRef.current = "over";
-        onPhaseChange("over");
-        onScoreChange(worldRef.current.score);
-      } else {
-        onScoreChange(worldRef.current.score);
-      }
-    } else {
-      // idle or over → start new game
-      worldRef.current = freshWorld(W, H);
-      spawnCurrent(worldRef.current);
-      lastT.current = performance.now();
-      phaseRef.current = "playing";
-      onPhaseChange("playing");
-      onScoreChange(0);
-    }
-  }, [W, H, onPhaseChange, onScoreChange]);
-
-  const tap = Gesture.Tap().onEnd(() => {
-    "worklet";
-    runOnJS(handleTap)();
-  });
+          if (result === "miss") {
+            phaseRef.value = "over";
+            runOnJS(setPhase)("over");
+            runOnJS(setScore)(world.value.score);
+          } else {
+            runOnJS(setScore)(world.value.score);
+          }
+        } else {
+          // idle or over → start a new game
+          const w = freshWorld(W, H);
+          spawnCurrent(w);
+          world.value = w;
+          phaseRef.value = "playing";
+          runOnJS(setPhase)("playing");
+          runOnJS(setScore)(0);
+        }
+      }),
+    [W, H, setPhase, setScore]
+  );
 
   return (
     <GestureDetector gesture={tap}>
       <Canvas style={styles.canvas}>
-        <Picture picture={pic} />
+        <Picture picture={picture} />
       </Canvas>
     </GestureDetector>
   );
