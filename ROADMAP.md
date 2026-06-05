@@ -46,11 +46,12 @@ real SFX)*
 
 ---
 
-## Phase 2 — Complete the loop ⬜
+## Phase 2 — Complete the loop 🔄
 
 Everything a stranger needs to pick it up, replay, and come back.
 
-- ⬜ Persistent high score + session best (`react-native-mmkv`)
+- ✅ Persistent high score (`react-native-mmkv`) — best score survives relaunch;
+  "new best" moment on game-over, shown on the idle/over overlays
 - ⬜ Settings: sound and haptics toggles (store/accessibility expectation)
 - ⬜ Pause / resume, clean restart flow
 - ⬜ First-run nicety (the idle screen already covers most of this)

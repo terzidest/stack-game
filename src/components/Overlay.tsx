@@ -5,9 +5,11 @@ import type { Phase } from "../game/types";
 interface Props {
   phase: Phase;
   score: number;
+  best: number;
+  newRecord: boolean;
 }
 
-export default function Overlay({ phase, score }: Props) {
+export default function Overlay({ phase, score, best, newRecord }: Props) {
   if (phase === "playing") return null;
 
   const isOver = phase === "over";
@@ -20,6 +22,15 @@ export default function Overlay({ phase, score }: Props) {
           ? `You stacked ${score} ${score === 1 ? "block" : "blocks"}.`
           : "Tap to drop a block.\nLine it up. Don't miss."}
       </Text>
+      {isOver ? (
+        newRecord ? (
+          <Text style={styles.record}>★ New best — {score}</Text>
+        ) : (
+          <Text style={styles.best}>Best: {best}</Text>
+        )
+      ) : (
+        best > 0 && <Text style={styles.best}>Best: {best}</Text>
+      )}
       <View style={styles.cta}>
         <Text style={styles.ctaText}>
           {isOver ? "Tap to retry" : "Tap to start"}
@@ -54,6 +65,18 @@ const styles = StyleSheet.create({
     color: "#9aa3b8",
     textAlign: "center",
     maxWidth: 280,
+  },
+  best: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#9aa3b8",
+    letterSpacing: 0.5,
+  },
+  record: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#ffd700",
+    letterSpacing: 0.5,
   },
   cta: {
     marginTop: 6,
