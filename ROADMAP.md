@@ -52,7 +52,8 @@ Everything a stranger needs to pick it up, replay, and come back.
 
 - ✅ Persistent high score (`react-native-mmkv`) — best score survives relaunch;
   "new best" moment on game-over, shown on the idle/over overlays
-- ⬜ Settings: sound and haptics toggles (store/accessibility expectation)
+- ✅ Settings: sound and haptics toggles — persisted, gate the feedback
+  side-effects, reachable via a gear on the idle/over screens
 - ⬜ Pause / resume, clean restart flow
 - ⬜ First-run nicety (the idle screen already covers most of this)
 - ⬜ Difficulty tuning pass — speed ramp, perfect window, warm-up (playtested,
