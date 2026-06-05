@@ -29,6 +29,7 @@ interface Props {
   onPhaseChange: (phase: Phase) => void;
   onScoreChange: (score: number) => void;
   onComboChange: (combo: number) => void;
+  onGameOver: (score: number) => void;
 }
 
 function triggerHapticJS(result: DropResult): void {
@@ -46,6 +47,7 @@ export default function GameCanvas({
   onPhaseChange,
   onScoreChange,
   onComboChange,
+  onGameOver,
 }: Props) {
   const { width: W, height: H } = useWindowDimensions();
   const { playDrop, playPerfect } = useGameSounds();
@@ -128,6 +130,7 @@ export default function GameCanvas({
           if (result === "miss") {
             phaseRef.value = "over";
             runOnJS(setPhase)("over");
+            runOnJS(onGameOver)(world.value.score);
           }
           runOnJS(setScore)(world.value.score);
           runOnJS(setCombo)(result === "miss" ? 0 : world.value.combo);
@@ -144,7 +147,7 @@ export default function GameCanvas({
           runOnJS(setCombo)(0);
         }
       }),
-    [W, H, setPhase, setScore, setCombo, playSoundJS]
+    [W, H, setPhase, setScore, setCombo, playSoundJS, onGameOver]
   );
 
   return (
