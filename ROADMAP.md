@@ -37,7 +37,8 @@ Make it feel like a finished product, not a prototype.
 - ✅ Haptics (`expo-haptics`) on drop / perfect / game over
 - ✅ Sound layer (`expo-audio`) — drop + perfect SFX, crash-safe
 - ✅ Allocation cleanup (hoist Skia `Paint` / `PictureRecorder` to module scope)
-- ⬜ Real SFX files dropped into `assets/sfx/` (placeholders in place)
+- ✅ Real SFX files in `assets/sfx/` (drop + perfect); reliable, low-latency
+  playback (warm-up prime + seek-then-play)
 - ⬜ On-device feel + frame-profile verification (needs the EAS dev build)
 
 **Exit:** drops feel tactile on a real device; clean frame profile under a tall
