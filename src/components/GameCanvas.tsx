@@ -5,8 +5,10 @@ import {
   useSharedValue,
   useFrameCallback,
   useDerivedValue,
-  runOnJS,
 } from "react-native-reanimated";
+// runOnJS now lives in react-native-worklets; reanimated only re-exports it
+// (deprecated). Same curried signature — call sites are unchanged.
+import { runOnJS } from "react-native-worklets";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
 
