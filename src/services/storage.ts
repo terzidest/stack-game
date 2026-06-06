@@ -3,10 +3,9 @@
 // at game-over only — never in the per-frame path. Not unit-tested (imports the
 // native module); the decision logic it delegates to lives in ./highScore.
 
-import { createMMKV } from "react-native-mmkv";
+import { store } from "./mmkv";
 import { isNewRecord, pickBest } from "./highScore";
 
-const store = createMMKV();
 const HIGH_SCORE_KEY = "highScore";
 
 export function loadHighScore(): number {

@@ -37,7 +37,8 @@ Make it feel like a finished product, not a prototype.
 - ✅ Haptics (`expo-haptics`) on drop / perfect / game over
 - ✅ Sound layer (`expo-audio`) — drop + perfect SFX, crash-safe
 - ✅ Allocation cleanup (hoist Skia `Paint` / `PictureRecorder` to module scope)
-- ⬜ Real SFX files dropped into `assets/sfx/` (placeholders in place)
+- ✅ Real SFX files in `assets/sfx/` (drop + perfect); reliable, low-latency
+  playback (warm-up prime + seek-then-play)
 - ⬜ On-device feel + frame-profile verification (needs the EAS dev build)
 
 **Exit:** drops feel tactile on a real device; clean frame profile under a tall
@@ -52,7 +53,8 @@ Everything a stranger needs to pick it up, replay, and come back.
 
 - ✅ Persistent high score (`react-native-mmkv`) — best score survives relaunch;
   "new best" moment on game-over, shown on the idle/over overlays
-- ⬜ Settings: sound and haptics toggles (store/accessibility expectation)
+- ✅ Settings: sound and haptics toggles — persisted, gate the feedback
+  side-effects, reachable via a gear on the idle/over screens
 - ⬜ Pause / resume, clean restart flow
 - ⬜ First-run nicety (the idle screen already covers most of this)
 - ⬜ Difficulty tuning pass — speed ramp, perfect window, warm-up (playtested,

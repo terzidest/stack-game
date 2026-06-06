@@ -20,6 +20,7 @@ import {
 } from "../game/logic";
 import { drawWorld } from "../game/renderer";
 import { useGameSounds } from "../game/sound";
+import { isSoundEnabled, isHapticsEnabled } from "../services/settings";
 
 // Reused across every frame — no per-frame allocation.
 const _rec = Skia.PictureRecorder();
@@ -33,6 +34,7 @@ interface Props {
 }
 
 function triggerHapticJS(result: DropResult): void {
+  if (!isHapticsEnabled()) return;
   if (result === "placed") {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   } else if (result === "perfect") {
@@ -84,6 +86,7 @@ export default function GameCanvas({
 
   const playSoundJS = useCallback(
     (result: DropResult) => {
+      if (!isSoundEnabled()) return;
       if (result === "perfect") playPerfect();
       else if (result === "placed") playDrop();
     },
@@ -127,15 +130,21 @@ export default function GameCanvas({
             return w;
           }, true);
 
+          // Stop the loop immediately on the UI thread (no JS hop needed).
+          if (result === "miss") phaseRef.value = "over";
+
+          // Feedback first — sound + haptic are latency-sensitive, so jump the
+          // JS-thread queue ahead of the React state updates below.
+          runOnJS(playSoundJS)(result);
+          runOnJS(triggerHapticJS)(result);
+
+          // Display/state updates can lag a frame without anyone noticing.
+          runOnJS(setScore)(world.value.score);
+          runOnJS(setCombo)(result === "miss" ? 0 : world.value.combo);
           if (result === "miss") {
-            phaseRef.value = "over";
             runOnJS(setPhase)("over");
             runOnJS(onGameOver)(world.value.score);
           }
-          runOnJS(setScore)(world.value.score);
-          runOnJS(setCombo)(result === "miss" ? 0 : world.value.combo);
-          runOnJS(triggerHapticJS)(result);
-          runOnJS(playSoundJS)(result);
         } else {
           // idle or over → start a new game
           const w = freshWorld(W, H);
