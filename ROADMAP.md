@@ -56,7 +56,8 @@ Everything a stranger needs to pick it up, replay, and come back.
   "new best" moment on game-over, shown on the idle/over overlays
 - ✅ Settings: sound and haptics toggles — persisted, gate the feedback
   side-effects, reachable via a gear on the idle/over screens
-- ⬜ Pause / resume, clean restart flow
+- ✅ Pause / resume, clean restart flow — pause button during play; overlay with
+  Resume (continues from the frozen state) and Restart (fresh game)
 - ⬜ First-run nicety (the idle screen already covers most of this)
 - ✅ Difficulty tuning pass — gentler speed ramp (`SPEED_STEP` 0.011→0.006, cap
   at score ~55 instead of 30) for more mid-game breathing room; perfect window
