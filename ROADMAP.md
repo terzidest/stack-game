@@ -28,7 +28,7 @@ The core game on the correct architecture.
 
 ---
 
-## Phase 1 — Game feel 🔄
+## Phase 1 — Game feel ✅
 
 Make it feel like a finished product, not a prototype.
 
@@ -39,11 +39,12 @@ Make it feel like a finished product, not a prototype.
 - ✅ Allocation cleanup (hoist Skia `Paint` / `PictureRecorder` to module scope)
 - ✅ Real SFX files in `assets/sfx/` (drop + perfect); reliable, low-latency
   playback (warm-up prime + seek-then-play)
-- ⬜ On-device feel + frame-profile verification (needs the EAS dev build)
+- ✅ On-device feel verification — Android dev build on a real A53 (Galaxy
+  A536B): haptics, screen shake, sound, and difficulty all confirmed on
+  hardware; no frame issues through a ~46-block run
 
 **Exit:** drops feel tactile on a real device; clean frame profile under a tall
-tower on a mid/low-end Android. *(code complete; pending hardware validation +
-real SFX)*
+tower on a mid/low-end Android. *(met — validated on a Galaxy A53)*
 
 ---
 
@@ -57,8 +58,9 @@ Everything a stranger needs to pick it up, replay, and come back.
   side-effects, reachable via a gear on the idle/over screens
 - ⬜ Pause / resume, clean restart flow
 - ⬜ First-run nicety (the idle screen already covers most of this)
-- ⬜ Difficulty tuning pass — speed ramp, perfect window, warm-up (playtested,
-  not eyeballed)
+- ✅ Difficulty tuning pass — gentler speed ramp (`SPEED_STEP` 0.011→0.006, cap
+  at score ~55 instead of 30) for more mid-game breathing room; perfect window
+  kept tight on purpose. Playtested on the A53; curve pinned by unit tests.
 
 **Exit:** a complete, satisfying, self-explanatory game loop.
 

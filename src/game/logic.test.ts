@@ -5,7 +5,7 @@ import {
   updateWorld,
   dropBlock,
 } from "./logic";
-import { BASE_SPEED } from "./constants";
+import { BASE_SPEED, SPEED_STEP, MAX_SPEED } from "./constants";
 import type { World } from "./types";
 
 // Fixed dimensions for predictable geometry.
@@ -18,6 +18,38 @@ function newGame(): World {
   spawnCurrent(world);
   return world;
 }
+
+// The current block's speed for a given score, via the real spawn path.
+function speedAtScore(score: number): number {
+  const world = freshWorld(W, H);
+  world.score = score;
+  spawnCurrent(world);
+  return world.current!.speed;
+}
+
+describe("speed curve", () => {
+  it("starts at BASE_SPEED on the first block", () => {
+    expect(speedAtScore(0)).toBeCloseTo(BASE_SPEED);
+  });
+
+  it("increases with score", () => {
+    expect(speedAtScore(10)).toBeGreaterThan(speedAtScore(0));
+    expect(speedAtScore(20)).toBeGreaterThan(speedAtScore(10));
+  });
+
+  it("caps at MAX_SPEED and never exceeds it", () => {
+    expect(speedAtScore(60)).toBe(MAX_SPEED);
+    expect(speedAtScore(1000)).toBe(MAX_SPEED);
+  });
+
+  it("reaches the cap around score 55 (gentle ramp), not before", () => {
+    // (MAX_SPEED - BASE_SPEED) / SPEED_STEP = (0.5 - 0.17) / 0.006 = 55.
+    // This pins the tuned ramp: changing SPEED_STEP must update this on purpose.
+    expect((MAX_SPEED - BASE_SPEED) / SPEED_STEP).toBeCloseTo(55);
+    expect(speedAtScore(54)).toBeLessThan(MAX_SPEED);
+    expect(speedAtScore(55)).toBeCloseTo(MAX_SPEED);
+  });
+});
 
 describe("dropBlock", () => {
   it("returns 'miss' when there is no current block", () => {
