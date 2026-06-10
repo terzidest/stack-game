@@ -1,4 +1,4 @@
-export type Phase = "idle" | "playing" | "over";
+export type Phase = "idle" | "playing" | "paused" | "over";
 
 export interface Block {
   x: number;

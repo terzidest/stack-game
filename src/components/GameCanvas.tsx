@@ -29,6 +29,7 @@ const _rec = Skia.PictureRecorder();
 
 interface Props {
   phase: Phase;
+  restartNonce: number;
   onPhaseChange: (phase: Phase) => void;
   onScoreChange: (score: number) => void;
   onComboChange: (combo: number) => void;
@@ -48,6 +49,7 @@ function triggerHapticJS(result: DropResult): void {
 
 export default function GameCanvas({
   phase,
+  restartNonce,
   onPhaseChange,
   onScoreChange,
   onComboChange,
@@ -71,6 +73,18 @@ export default function GameCanvas({
       world.value = freshWorld(W, H);
     }
   }, [W, H]);
+
+  // Restart from a React button (pause overlay): reset the world to a fresh game
+  // when the nonce bumps. Deps are [restartNonce] only so a resize never restarts;
+  // W/H are read from the current render's closure.
+  useEffect(() => {
+    if (restartNonce > 0) {
+      const w = freshWorld(W, H);
+      spawnCurrent(w);
+      world.value = w;
+      phaseRef.value = "playing";
+    }
+  }, [restartNonce]);
 
   // Callbacks bridged to JS thread (only on tap, never per-frame)
   const setPhase = useCallback(
@@ -147,8 +161,12 @@ export default function GameCanvas({
             runOnJS(setPhase)("over");
             runOnJS(onGameOver)(world.value.score);
           }
-        } else {
-          // idle or over → start a new game
+        } else if (
+          phaseRef.value === "idle" ||
+          phaseRef.value === "over"
+        ) {
+          // idle or over → start a new game. ("paused" is a deliberate no-op;
+          // resume happens via the pause overlay button.)
           const w = freshWorld(W, H);
           spawnCurrent(w);
           world.value = w;

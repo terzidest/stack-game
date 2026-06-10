@@ -8,6 +8,7 @@ import GameCanvas from "./src/components/GameCanvas";
 import HUD from "./src/components/HUD";
 import Overlay from "./src/components/Overlay";
 import Settings from "./src/components/Settings";
+import PauseOverlay from "./src/components/PauseOverlay";
 import { loadHighScore, commitScore } from "./src/services/storage";
 import {
   loadSettings,
@@ -23,6 +24,7 @@ export default function App() {
   const [newRecord, setNewRecord] = useState(false);
   const [settings, setSettings] = useState(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [restartNonce, setRestartNonce] = useState(0);
 
   // Read the persisted best once at startup.
   useEffect(() => setBest(loadHighScore()), []);
@@ -48,11 +50,21 @@ export default function App() {
     setNewRecord(result.isNewRecord);
   }, []);
 
+  const handlePause = useCallback(() => setPhase("paused"), []);
+  const handleResume = useCallback(() => setPhase("playing"), []);
+  const handleRestart = useCallback(() => {
+    setRestartNonce((n) => n + 1); // tells GameCanvas to reset its world
+    setScore(0);
+    setCombo(0);
+    setPhase("playing");
+  }, []);
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <View style={styles.container}>
         <GameCanvas
           phase={phase}
+          restartNonce={restartNonce}
           onPhaseChange={handlePhaseChange}
           onScoreChange={handleScoreChange}
           onComboChange={handleComboChange}
@@ -60,15 +72,30 @@ export default function App() {
         />
         <HUD score={score} combo={combo} phase={phase} />
         <Overlay phase={phase} score={score} best={best} newRecord={newRecord} />
-        {phase !== "playing" && (
+        {(phase === "idle" || phase === "over") && (
           <Pressable
-            style={styles.gear}
+            style={styles.corner}
             hitSlop={12}
             onPress={() => setSettingsOpen(true)}
           >
-            <Text style={styles.gearIcon}>⚙</Text>
+            <Text style={styles.cornerIcon}>⚙</Text>
           </Pressable>
         )}
+        {phase === "playing" && (
+          <Pressable
+            style={styles.corner}
+            hitSlop={12}
+            onPress={handlePause}
+          >
+            <Text style={styles.cornerIcon}>⏸</Text>
+          </Pressable>
+        )}
+        <PauseOverlay
+          open={phase === "paused"}
+          score={score}
+          onResume={handleResume}
+          onRestart={handleRestart}
+        />
         <Settings
           open={settingsOpen}
           settings={settings}
@@ -90,7 +117,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0d0f14",
   },
-  gear: {
+  corner: {
     position: "absolute",
     top: 56,
     right: 22,
@@ -99,7 +126,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  gearIcon: {
+  cornerIcon: {
     fontSize: 24,
     color: "#9aa3b8",
   },
