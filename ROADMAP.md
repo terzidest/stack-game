@@ -138,8 +138,9 @@ The features you care about, layered onto the existing structure (all land in
   target block count, speed multiplier), `domain/difficulty.ts`, a
   `levelComplete` phase, `ui/LevelComplete.tsx`, persisted level progress.
   Lower levels = fewer blocks to clear and slower movement.
-- ⬜ **Expanded bonuses** — richer perfect-streak scoring, near-miss recovery,
-  combo milestones.
+- 🔄 **Expanded bonuses** — tempered streak scoring landed early (perfect =
+  1 + streak; score is points, block count + longest streak shown at game over).
+  Still open: near-miss recovery, combo milestones.
 - ⬜ Daily challenge / seeded runs (the deterministic sim makes this cheap)
 - ⬜ Platform leaderboards (Game Center / Play Games)
 - ⬜ Themes / color skins
