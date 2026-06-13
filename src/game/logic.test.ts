@@ -71,8 +71,9 @@ describe("dropBlock", () => {
     expect(world.blocks[1].squash).toBe(1); // landing squash armed
     expect(world.debris).toHaveLength(0); // perfect never spawns debris
     expect(world.pulses).toHaveLength(1);
-    expect(world.score).toBe(1);
+    expect(world.score).toBe(2); // first perfect = 1 + streak(1)
     expect(world.combo).toBe(1);
+    expect(world.maxCombo).toBe(1);
     expect(world.shake).toBe(0); // perfect doesn't shake
   });
 
@@ -119,6 +120,66 @@ describe("dropBlock", () => {
     // intensity = 1 + min(combo-1, 4) * 0.4
     expect(world.pulses[0].intensity).toBeCloseTo(1.0);
     expect(world.pulses[1].intensity).toBeCloseTo(1.4);
+  });
+});
+
+describe("scoring", () => {
+  // Drop a perfect onto the current top, then realign onto the new top so the
+  // next drop is also perfect. Returns the world for chaining assertions.
+  function perfect(world: World): void {
+    world.current!.x = world.blocks[world.blocks.length - 1].x;
+    dropBlock(world, W, H);
+  }
+  // Drop a non-perfect (offset enough to clear PERFECT but keep overlap).
+  function placed(world: World): void {
+    world.current!.x = world.blocks[world.blocks.length - 1].x + 40;
+    dropBlock(world, W, H);
+  }
+
+  it("a normal drop scores +1", () => {
+    const world = newGame();
+    placed(world);
+    expect(world.score).toBe(1);
+    expect(world.combo).toBe(0);
+  });
+
+  it("a perfect scores 1 + streak (so the first is +2)", () => {
+    const world = newGame();
+    perfect(world);
+    expect(world.score).toBe(2);
+    expect(world.combo).toBe(1);
+    expect(world.maxCombo).toBe(1);
+  });
+
+  it("consecutive perfects ramp the bonus: +2 then +3 (total 5)", () => {
+    const world = newGame();
+    perfect(world); // +2
+    perfect(world); // +3
+    expect(world.score).toBe(5);
+    expect(world.combo).toBe(2);
+    expect(world.maxCombo).toBe(2);
+  });
+
+  it("a non-perfect resets the streak but keeps maxCombo at the peak", () => {
+    const world = newGame();
+    perfect(world); // combo 1, score 2
+    perfect(world); // combo 2, score 5
+    perfect(world); // combo 3, score 9
+    placed(world); // combo -> 0, score 10
+    expect(world.score).toBe(10);
+    expect(world.combo).toBe(0);
+    expect(world.maxCombo).toBe(3);
+  });
+
+  it("a later shorter streak does not lower maxCombo", () => {
+    const world = newGame();
+    perfect(world);
+    perfect(world);
+    perfect(world); // peak streak of 3
+    placed(world);
+    perfect(world); // streak of 1 again
+    expect(world.combo).toBe(1);
+    expect(world.maxCombo).toBe(3);
   });
 });
 

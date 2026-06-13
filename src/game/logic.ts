@@ -32,6 +32,7 @@ export function freshWorld(W: number, H: number): World {
     score: 0,
     shake: 0,
     combo: 0,
+    maxCombo: 0,
   };
 }
 
@@ -134,7 +135,8 @@ export function dropBlock(world: World, W: number, H: number): DropResult {
       life: 1,
       intensity,
     });
-    world.score++;
+    world.maxCombo = Math.max(world.maxCombo, world.combo);
+    world.score += 1 + world.combo; // 1st perfect +2, 2nd +3, 3rd +4 …
     spawnCurrent(world);
     return "perfect";
   }
@@ -188,7 +190,7 @@ export function dropBlock(world: World, W: number, H: number): DropResult {
   }
 
   world.blocks.push({ x: left, width: overlap, squash: 1 });
-  world.score++;
+  world.score += 1;
   spawnCurrent(world);
   return "placed";
 }

@@ -22,6 +22,8 @@ export default function App() {
   const [combo, setCombo] = useState(0);
   const [best, setBest] = useState(0);
   const [newRecord, setNewRecord] = useState(false);
+  const [lastBlocks, setLastBlocks] = useState(0);
+  const [lastStreak, setLastStreak] = useState(0);
   const [settings, setSettings] = useState(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [restartNonce, setRestartNonce] = useState(0);
@@ -44,11 +46,17 @@ export default function App() {
   }, []);
   const handleScoreChange = useCallback((s: number) => setScore(s), []);
   const handleComboChange = useCallback((c: number) => setCombo(c), []);
-  const handleGameOver = useCallback((finalScore: number) => {
-    const result = commitScore(finalScore);
-    setBest(result.best);
-    setNewRecord(result.isNewRecord);
-  }, []);
+  const handleGameOver = useCallback(
+    (finalScore: number, finalBlocks: number, finalStreak: number) => {
+      setPhase("over"); // batched with the stats below → no stale-stat flash
+      const result = commitScore(finalScore);
+      setBest(result.best);
+      setNewRecord(result.isNewRecord);
+      setLastBlocks(finalBlocks);
+      setLastStreak(finalStreak);
+    },
+    []
+  );
 
   const handlePause = useCallback(() => setPhase("paused"), []);
   const handleResume = useCallback(() => setPhase("playing"), []);
@@ -71,7 +79,14 @@ export default function App() {
           onGameOver={handleGameOver}
         />
         <HUD score={score} combo={combo} phase={phase} />
-        <Overlay phase={phase} score={score} best={best} newRecord={newRecord} />
+        <Overlay
+          phase={phase}
+          score={score}
+          blocks={lastBlocks}
+          streak={lastStreak}
+          best={best}
+          newRecord={newRecord}
+        />
         {(phase === "idle" || phase === "over") && (
           <Pressable
             style={styles.corner}

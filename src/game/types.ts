@@ -39,5 +39,6 @@ export interface World {
   cameraY: number;
   score: number;
   shake: number; // pixel amplitude, decays to 0
-  combo: number; // perfect-drop streak
+  combo: number; // current perfect-drop streak
+  maxCombo: number; // longest perfect streak this run
 }

@@ -33,7 +33,7 @@ interface Props {
   onPhaseChange: (phase: Phase) => void;
   onScoreChange: (score: number) => void;
   onComboChange: (combo: number) => void;
-  onGameOver: (score: number) => void;
+  onGameOver: (score: number, blocks: number, streak: number) => void;
 }
 
 function triggerHapticJS(result: DropResult): void {
@@ -158,8 +158,13 @@ export default function GameCanvas({
           runOnJS(setScore)(world.value.score);
           runOnJS(setCombo)(result === "miss" ? 0 : world.value.combo);
           if (result === "miss") {
-            runOnJS(setPhase)("over");
-            runOnJS(onGameOver)(world.value.score);
+            // Hand all final stats over in one call; App sets the "over" phase
+            // alongside them so the game-over screen renders in one batch.
+            runOnJS(onGameOver)(
+              world.value.score,
+              world.value.blocks.length - 1,
+              world.value.maxCombo
+            );
           }
         } else if (
           phaseRef.value === "idle" ||
