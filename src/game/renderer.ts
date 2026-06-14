@@ -1,12 +1,14 @@
-import { Skia, PaintStyle, BlurStyle } from "@shopify/react-native-skia";
+import {
+  Skia,
+  BlurStyle,
+  TileMode,
+} from "@shopify/react-native-skia";
 import type { SkCanvas } from "@shopify/react-native-skia";
 import {
   BLOCK_H,
-  FLASH_BOOST,
+  FLASH_ALPHA,
   GLOW_SIGMA,
   GLOW_ALPHA,
-  SHADOW_SIGMA,
-  SHADOW_ALPHA,
 } from "./constants";
 import { hue, screenTop } from "./logic";
 import type { World } from "./types";
@@ -14,19 +16,24 @@ import type { World } from "./types";
 // Module-scope paints — created once, mutated before each draw call.
 const _bgPaint = Skia.Paint();
 const _bodyPaint = Skia.Paint();
-const _bandPaint = Skia.Paint(); // darker bottom band → fake vertical gradient
-const _hlPaint = Skia.Paint();
-const _strokePaint = Skia.Paint();
-_strokePaint.setStyle(PaintStyle.Stroke);
-_strokePaint.setStrokeWidth(2);
-_strokePaint.setColor(Skia.Color("#ffffff"));
+const _flashPaint = Skia.Paint(); // white hit-pop overlay (alpha set per draw)
 
-// Soft shadow under the active block (one blur, set up once).
-const _shadowPaint = Skia.Paint();
-_shadowPaint.setColor(Skia.Color("#000000"));
-_shadowPaint.setAlphaf(SHADOW_ALPHA);
-_shadowPaint.setMaskFilter(
-  Skia.MaskFilter.MakeBlur(BlurStyle.Normal, SHADOW_SIGMA, true)
+// Smooth vertical gradient as a hue-independent shading overlay: lighten the
+// top, darken the bottom. One shader serves every block (drawn in block-local
+// space), so there's no per-frame/per-hue allocation.
+const _shadePaint = Skia.Paint();
+_shadePaint.setShader(
+  Skia.Shader.MakeLinearGradient(
+    { x: 0, y: 0 },
+    { x: 0, y: BLOCK_H },
+    [
+      new Float32Array([1, 1, 1, 0.16]), // top: subtle highlight
+      new Float32Array([1, 1, 1, 0]), // mid: untouched body
+      new Float32Array([0, 0, 0, 0.3]), // bottom: shadow
+    ],
+    [0, 0.5, 1],
+    TileMode.Clamp
+  )
 );
 
 // Colored bloom behind perfect drops (color set per pulse).
@@ -66,48 +73,39 @@ function drawBlock(
   "worklet";
   if (width <= 0) return;
 
+  const r = Math.min(4, width / 2, BLOCK_H / 2);
+
+  // Work in block-local space (origin at top-left) so the shared gradient
+  // shader and the squash pivot line up regardless of where the block is.
+  canvas.save();
+  canvas.translate(x, y);
+
   if (squash > 0) {
     const phase = (1 - squash) * Math.PI * 2;
     const deform = squash * Math.cos(phase) * 0.25;
-    const scaleY = 1 - deform;
-    const scaleX = 1 + deform * 0.4;
-    canvas.save();
-    // Pivot at bottom-centre of block
-    canvas.translate(x + width / 2, y + BLOCK_H);
-    canvas.scale(scaleX, scaleY);
-    canvas.translate(-(x + width / 2), -(y + BLOCK_H));
+    canvas.translate(width / 2, BLOCK_H);
+    canvas.scale(1 + deform * 0.4, 1 - deform);
+    canvas.translate(-width / 2, -BLOCK_H);
   }
 
-  const r = Math.min(4, width / 2, BLOCK_H / 2);
-  // Hit-pop: a freshly-landed block (squash near 1) flashes brighter, fading
-  // as squash decays back to 0.
-  const flash = squash * FLASH_BOOST;
+  const rect = Skia.RRectXY(Skia.XYWHRect(0, 0, width, BLOCK_H), r, r);
 
-  // Body (mid tone)
-  _bodyPaint.setColor(hslColor(h, 62, 52 + flash, alpha));
-  canvas.drawRRect(
-    Skia.RRectXY(Skia.XYWHRect(x, y, width, BLOCK_H), r, r),
-    _bodyPaint
-  );
+  // Flat body
+  _bodyPaint.setColor(hslColor(h, 62, 54, alpha));
+  canvas.drawRRect(rect, _bodyPaint);
 
-  // Darker bottom band → cheap vertical gradient
-  const bandH = BLOCK_H * 0.45;
-  _bandPaint.setColor(hslColor(h, 62, 44 + flash * 0.6, alpha));
-  canvas.drawRRect(
-    Skia.RRectXY(Skia.XYWHRect(x, y + BLOCK_H - bandH, width, bandH), r, r),
-    _bandPaint
-  );
+  // Smooth gradient shading (solid blocks only; debris stays flat).
+  if (alpha >= 1) {
+    canvas.drawRRect(rect, _shadePaint);
+  }
 
-  // Top highlight
-  _hlPaint.setColor(hslColor(h, 70, 70 + flash, alpha));
-  canvas.drawRRect(
-    Skia.RRectXY(Skia.XYWHRect(x, y, width, Math.min(4, BLOCK_H)), r, r),
-    _hlPaint
-  );
-
+  // Hit-pop: a freshly-landed block flashes white, fading as squash decays.
   if (squash > 0) {
-    canvas.restore();
+    _flashPaint.setColor(hslColor(0, 0, 100, squash * FLASH_ALPHA));
+    canvas.drawRRect(rect, _flashPaint);
   }
+
+  canvas.restore();
 }
 
 export function drawWorld(
@@ -151,22 +149,6 @@ export function drawWorld(
 
   if (world.current) {
     const y = screenTop(world.blocks.length, world, H);
-    // Soft shadow on the active (sliding) block only — gives it depth above the
-    // stack. One blur per frame.
-    const sw = world.current.width * 0.92;
-    canvas.drawRRect(
-      Skia.RRectXY(
-        Skia.XYWHRect(
-          world.current.x + (world.current.width - sw) / 2,
-          y + BLOCK_H + 3,
-          sw,
-          BLOCK_H * 0.5
-        ),
-        6,
-        6
-      ),
-      _shadowPaint
-    );
     drawBlock(canvas, world.current.x, y, world.current.width, hue(world.blocks.length), 1, 0);
   }
 
@@ -184,18 +166,6 @@ export function drawWorld(
     const d = world.dust[i];
     _dustPaint.setColor(hslColor(195, 50, 85, Math.max(0, d.life)));
     canvas.drawCircle(d.sx, d.sy, d.size, _dustPaint);
-  }
-
-  // Perfect shockwave ring (sharp, complements the soft glow)
-  for (let i = 0; i < world.pulses.length; i++) {
-    const p = world.pulses[i];
-    const intensity = p.intensity ?? 1;
-    _strokePaint.setAlphaf(Math.min(1, p.life * 0.7 * intensity));
-    const g = (1 - p.life) * 22 * intensity;
-    canvas.drawRect(
-      Skia.XYWHRect(p.sx - p.w / 2 - g, p.sy - g, p.w + g * 2, BLOCK_H + g * 2),
-      _strokePaint
-    );
   }
 
   if (shaking) {
