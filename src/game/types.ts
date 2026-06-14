@@ -4,6 +4,7 @@ export interface Block {
   x: number;
   width: number;
   squash?: number; // 1 = just landed, decays to 0 over ~350ms
+  perfect?: boolean; // landed perfectly (drives the hit-pop flash)
 }
 
 export interface Current extends Block {

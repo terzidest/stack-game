@@ -1,17 +1,46 @@
-import { Skia, PaintStyle } from "@shopify/react-native-skia";
+import {
+  Skia,
+  BlurStyle,
+  TileMode,
+} from "@shopify/react-native-skia";
 import type { SkCanvas } from "@shopify/react-native-skia";
-import { BLOCK_H } from "./constants";
+import {
+  BLOCK_H,
+  FLASH_ALPHA,
+  GLOW_SIGMA,
+  GLOW_ALPHA,
+} from "./constants";
 import { hue, screenTop } from "./logic";
 import type { World } from "./types";
 
 // Module-scope paints — created once, mutated before each draw call.
 const _bgPaint = Skia.Paint();
 const _bodyPaint = Skia.Paint();
-const _hlPaint = Skia.Paint();
-const _strokePaint = Skia.Paint();
-_strokePaint.setStyle(PaintStyle.Stroke);
-_strokePaint.setStrokeWidth(2);
-_strokePaint.setColor(Skia.Color("#ffffff"));
+const _flashPaint = Skia.Paint(); // white hit-pop overlay (alpha set per draw)
+
+// Smooth vertical gradient as a hue-independent shading overlay: lighten the
+// top, darken the bottom. One shader serves every block (drawn in block-local
+// space), so there's no per-frame/per-hue allocation.
+const _shadePaint = Skia.Paint();
+_shadePaint.setShader(
+  Skia.Shader.MakeLinearGradient(
+    { x: 0, y: 0 },
+    { x: 0, y: BLOCK_H },
+    [
+      new Float32Array([1, 1, 1, 0.16]), // top: subtle highlight
+      new Float32Array([1, 1, 1, 0]), // mid: untouched body
+      new Float32Array([0, 0, 0, 0.3]), // bottom: shadow
+    ],
+    [0, 0.5, 1],
+    TileMode.Clamp
+  )
+);
+
+// Colored bloom behind perfect drops (color set per pulse).
+const _glowPaint = Skia.Paint();
+_glowPaint.setMaskFilter(
+  Skia.MaskFilter.MakeBlur(BlurStyle.Normal, GLOW_SIGMA, true)
+);
 
 function hslColor(
   h: number,
@@ -36,40 +65,45 @@ function drawBlock(
   width: number,
   h: number,
   alpha: number,
-  squash: number = 0
+  squash: number = 0,
+  perfect: boolean = false
 ): void {
   "worklet";
   if (width <= 0) return;
 
+  const r = Math.min(4, width / 2, BLOCK_H / 2);
+
+  // Work in block-local space (origin at top-left) so the shared gradient
+  // shader and the squash pivot line up regardless of where the block is.
+  canvas.save();
+  canvas.translate(x, y);
+
   if (squash > 0) {
     const phase = (1 - squash) * Math.PI * 2;
     const deform = squash * Math.cos(phase) * 0.25;
-    const scaleY = 1 - deform;
-    const scaleX = 1 + deform * 0.4;
-    canvas.save();
-    // Pivot at bottom-centre of block
-    canvas.translate(x + width / 2, y + BLOCK_H);
-    canvas.scale(scaleX, scaleY);
-    canvas.translate(-(x + width / 2), -(y + BLOCK_H));
+    canvas.translate(width / 2, BLOCK_H);
+    canvas.scale(1 + deform * 0.4, 1 - deform);
+    canvas.translate(-width / 2, -BLOCK_H);
   }
 
-  const r = Math.min(4, width / 2, BLOCK_H / 2);
+  const rect = Skia.RRectXY(Skia.XYWHRect(0, 0, width, BLOCK_H), r, r);
 
-  _bodyPaint.setColor(hslColor(h, 62, 56, alpha));
-  canvas.drawRRect(
-    Skia.RRectXY(Skia.XYWHRect(x, y, width, BLOCK_H), r, r),
-    _bodyPaint
-  );
+  // Flat body
+  _bodyPaint.setColor(hslColor(h, 62, 54, alpha));
+  canvas.drawRRect(rect, _bodyPaint);
 
-  _hlPaint.setColor(hslColor(h, 70, 70, alpha));
-  canvas.drawRRect(
-    Skia.RRectXY(Skia.XYWHRect(x, y, width, Math.min(4, BLOCK_H)), r, r),
-    _hlPaint
-  );
-
-  if (squash > 0) {
-    canvas.restore();
+  // Smooth gradient shading (solid blocks only; debris stays flat).
+  if (alpha >= 1) {
+    canvas.drawRRect(rect, _shadePaint);
   }
+
+  // Hit-pop: perfect landings flash white, fading as squash decays.
+  if (perfect && squash > 0) {
+    _flashPaint.setColor(hslColor(0, 0, 100, squash * FLASH_ALPHA));
+    canvas.drawRRect(rect, _flashPaint);
+  }
+
+  canvas.restore();
 }
 
 export function drawWorld(
@@ -92,9 +126,23 @@ export function drawWorld(
     );
   }
 
+  // Perfect glow blooms — behind the tower so they radiate from around the block.
+  for (let i = 0; i < world.pulses.length; i++) {
+    const p = world.pulses[i];
+    const intensity = p.intensity ?? 1;
+    const a = Math.min(1, p.life * GLOW_ALPHA * intensity);
+    _glowPaint.setColor(hslColor(180, 70, 70, a));
+    const gw = p.w * (0.9 + 0.3 * intensity);
+    const gr = Math.min(6, gw / 2);
+    canvas.drawRRect(
+      Skia.RRectXY(Skia.XYWHRect(p.sx - gw / 2, p.sy, gw, BLOCK_H), gr, gr),
+      _glowPaint
+    );
+  }
+
   for (let i = 0; i < world.blocks.length; i++) {
     const b = world.blocks[i];
-    drawBlock(canvas, b.x, screenTop(i, world, H), b.width, hue(i), 1, b.squash ?? 0);
+    drawBlock(canvas, b.x, screenTop(i, world, H), b.width, hue(i), 1, b.squash ?? 0, b.perfect ?? false);
   }
 
   if (world.current) {
@@ -109,17 +157,6 @@ export function drawWorld(
     canvas.rotate((d.rot * 180) / Math.PI, 0, 0);
     drawBlock(canvas, -d.width / 2, -BLOCK_H / 2, d.width, d.hue, Math.max(0, d.alpha), 0);
     canvas.restore();
-  }
-
-  for (let i = 0; i < world.pulses.length; i++) {
-    const p = world.pulses[i];
-    const intensity = p.intensity ?? 1;
-    _strokePaint.setAlphaf(Math.min(1, p.life * 0.7 * intensity));
-    const g = (1 - p.life) * 22 * intensity;
-    canvas.drawRect(
-      Skia.XYWHRect(p.sx - p.w / 2 - g, p.sy - g, p.w + g * 2, BLOCK_H + g * 2),
-      _strokePaint
-    );
   }
 
   if (shaking) {
