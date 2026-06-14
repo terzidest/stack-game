@@ -5,12 +5,8 @@ import {
   MAX_SPEED,
   SPEED_STEP,
   GRAVITY,
-  DUST_COUNT,
-  DUST_COMBO_BONUS,
-  DUST_COMBO_CAP,
-  DUST_DECAY,
 } from "./constants";
-import type { World, Block, Current, Debris, Dust } from "./types";
+import type { World, Block, Current, Debris } from "./types";
 
 export type DropResult = "perfect" | "placed" | "miss";
 
@@ -32,7 +28,6 @@ export function freshWorld(W: number, H: number): World {
     current: null,
     debris: [],
     pulses: [],
-    dust: [],
     cameraY: 0,
     score: 0,
     shake: 0,
@@ -107,20 +102,6 @@ export function updateWorld(
   }
   world.debris = keepDebris;
 
-  // Dust physics (perfect-land kick)
-  const keepDust: Dust[] = [];
-  for (let i = 0; i < world.dust.length; i++) {
-    const p = world.dust[i];
-    p.vy += GRAVITY * dt;
-    p.sy += p.vy * dt;
-    p.sx += p.vx * dt;
-    p.life -= DUST_DECAY * dt;
-    if (p.life > 0) {
-      keepDust.push(p);
-    }
-  }
-  world.dust = keepDust;
-
   // Pulse decay
   const keepPulses = [];
   for (let i = 0; i < world.pulses.length; i++) {
@@ -154,26 +135,6 @@ export function dropBlock(world: World, W: number, H: number): DropResult {
       life: 1,
       intensity,
     });
-    // Dust kick on a clean land (perfect only — placed already throws debris).
-    // Deterministic fan (no randomness) so the sim stays replayable; more dust
-    // as the streak grows.
-    const cx = below.x + below.width / 2;
-    const contactY = sy + BLOCK_H;
-    const count =
-      DUST_COUNT + Math.min(world.combo, DUST_COMBO_CAP) * DUST_COMBO_BONUS;
-    for (let i = 0; i < count; i++) {
-      const dir = i % 2 === 0 ? -1 : 1;
-      const t = (i + 1) / (count + 1); // 0..1 spread factor
-      const wobble = ((i * 7) % 5) / 5; // deterministic 0..0.8 variation
-      world.dust.push({
-        sx: cx + dir * t * 10,
-        sy: contactY,
-        vx: dir * (0.04 + 0.1 * t),
-        vy: -(0.1 + 0.06 * wobble),
-        life: 1,
-        size: 2 + (i % 3),
-      });
-    }
     world.maxCombo = Math.max(world.maxCombo, world.combo);
     world.score += 1 + world.combo; // 1st perfect +2, 2nd +3, 3rd +4 …
     spawnCurrent(world);

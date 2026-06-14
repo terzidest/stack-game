@@ -42,9 +42,6 @@ _glowPaint.setMaskFilter(
   Skia.MaskFilter.MakeBlur(BlurStyle.Normal, GLOW_SIGMA, true)
 );
 
-// Perfect-land dust (color/alpha set per particle).
-const _dustPaint = Skia.Paint();
-
 function hslColor(
   h: number,
   s: number,
@@ -159,13 +156,6 @@ export function drawWorld(
     canvas.rotate((d.rot * 180) / Math.PI, 0, 0);
     drawBlock(canvas, -d.width / 2, -BLOCK_H / 2, d.width, d.hue, Math.max(0, d.alpha), 0);
     canvas.restore();
-  }
-
-  // Perfect-land dust
-  for (let i = 0; i < world.dust.length; i++) {
-    const d = world.dust[i];
-    _dustPaint.setColor(hslColor(195, 50, 85, Math.max(0, d.life)));
-    canvas.drawCircle(d.sx, d.sy, d.size, _dustPaint);
   }
 
   if (shaking) {

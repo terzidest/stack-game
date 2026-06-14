@@ -183,58 +183,6 @@ describe("scoring", () => {
   });
 });
 
-describe("dust", () => {
-  function perfect(world: World): void {
-    world.current!.x = world.blocks[world.blocks.length - 1].x;
-    dropBlock(world, W, H);
-  }
-
-  it("a perfect drop kicks up dust", () => {
-    const world = newGame();
-    perfect(world);
-    expect(world.dust.length).toBeGreaterThan(0);
-  });
-
-  it("a normal drop and a miss spawn no dust", () => {
-    const placedWorld = newGame();
-    placedWorld.current!.x = placedWorld.blocks[0].x + 40; // overlap, not perfect
-    dropBlock(placedWorld, W, H);
-    expect(placedWorld.dust).toHaveLength(0);
-
-    const missWorld = newGame();
-    missWorld.current!.x = 320; // no overlap → miss
-    dropBlock(missWorld, W, H);
-    expect(missWorld.dust).toHaveLength(0);
-  });
-
-  it("longer streaks kick up more dust", () => {
-    const world = newGame();
-    perfect(world); // combo 1
-    const firstBurst = world.dust.length;
-    perfect(world); // combo 2 → a bigger burst
-    const secondBurst = world.dust.length - firstBurst;
-    expect(secondBurst).toBeGreaterThan(firstBurst);
-  });
-
-  it("updateWorld decays dust and removes dead particles", () => {
-    const world = newGame();
-    perfect(world);
-    expect(world.dust.length).toBeGreaterThan(0);
-    updateWorld(world, W, H, 100000); // huge dt → all life gone
-    expect(world.dust).toHaveLength(0);
-  });
-
-  it("is deterministic: identical perfect runs produce identical dust", () => {
-    const a = newGame();
-    const b = newGame();
-    a.current!.x = a.blocks[0].x;
-    b.current!.x = b.blocks[0].x;
-    dropBlock(a, W, H);
-    dropBlock(b, W, H);
-    expect(a.dust).toEqual(b.dust);
-  });
-});
-
 describe("updateWorld", () => {
   it("advances the current block by dir * speed * dt (deterministic)", () => {
     const world = newGame();
