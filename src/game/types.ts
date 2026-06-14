@@ -31,11 +31,21 @@ export interface Pulse {
   intensity: number; // scales flash brightness & grow with combo
 }
 
+export interface Dust {
+  sx: number;
+  sy: number;
+  vx: number;
+  vy: number;
+  life: number; // 1 → 0
+  size: number;
+}
+
 export interface World {
   blocks: Block[];
   current: Current | null;
   debris: Debris[];
   pulses: Pulse[];
+  dust: Dust[];
   cameraY: number;
   score: number;
   shake: number; // pixel amplitude, decays to 0

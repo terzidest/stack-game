@@ -1,17 +1,42 @@
-import { Skia, PaintStyle } from "@shopify/react-native-skia";
+import { Skia, PaintStyle, BlurStyle } from "@shopify/react-native-skia";
 import type { SkCanvas } from "@shopify/react-native-skia";
-import { BLOCK_H } from "./constants";
+import {
+  BLOCK_H,
+  FLASH_BOOST,
+  GLOW_SIGMA,
+  GLOW_ALPHA,
+  SHADOW_SIGMA,
+  SHADOW_ALPHA,
+} from "./constants";
 import { hue, screenTop } from "./logic";
 import type { World } from "./types";
 
 // Module-scope paints — created once, mutated before each draw call.
 const _bgPaint = Skia.Paint();
 const _bodyPaint = Skia.Paint();
+const _bandPaint = Skia.Paint(); // darker bottom band → fake vertical gradient
 const _hlPaint = Skia.Paint();
 const _strokePaint = Skia.Paint();
 _strokePaint.setStyle(PaintStyle.Stroke);
 _strokePaint.setStrokeWidth(2);
 _strokePaint.setColor(Skia.Color("#ffffff"));
+
+// Soft shadow under the active block (one blur, set up once).
+const _shadowPaint = Skia.Paint();
+_shadowPaint.setColor(Skia.Color("#000000"));
+_shadowPaint.setAlphaf(SHADOW_ALPHA);
+_shadowPaint.setMaskFilter(
+  Skia.MaskFilter.MakeBlur(BlurStyle.Normal, SHADOW_SIGMA, true)
+);
+
+// Colored bloom behind perfect drops (color set per pulse).
+const _glowPaint = Skia.Paint();
+_glowPaint.setMaskFilter(
+  Skia.MaskFilter.MakeBlur(BlurStyle.Normal, GLOW_SIGMA, true)
+);
+
+// Perfect-land dust (color/alpha set per particle).
+const _dustPaint = Skia.Paint();
 
 function hslColor(
   h: number,
@@ -54,14 +79,27 @@ function drawBlock(
   }
 
   const r = Math.min(4, width / 2, BLOCK_H / 2);
+  // Hit-pop: a freshly-landed block (squash near 1) flashes brighter, fading
+  // as squash decays back to 0.
+  const flash = squash * FLASH_BOOST;
 
-  _bodyPaint.setColor(hslColor(h, 62, 56, alpha));
+  // Body (mid tone)
+  _bodyPaint.setColor(hslColor(h, 62, 52 + flash, alpha));
   canvas.drawRRect(
     Skia.RRectXY(Skia.XYWHRect(x, y, width, BLOCK_H), r, r),
     _bodyPaint
   );
 
-  _hlPaint.setColor(hslColor(h, 70, 70, alpha));
+  // Darker bottom band → cheap vertical gradient
+  const bandH = BLOCK_H * 0.45;
+  _bandPaint.setColor(hslColor(h, 62, 44 + flash * 0.6, alpha));
+  canvas.drawRRect(
+    Skia.RRectXY(Skia.XYWHRect(x, y + BLOCK_H - bandH, width, bandH), r, r),
+    _bandPaint
+  );
+
+  // Top highlight
+  _hlPaint.setColor(hslColor(h, 70, 70 + flash, alpha));
   canvas.drawRRect(
     Skia.RRectXY(Skia.XYWHRect(x, y, width, Math.min(4, BLOCK_H)), r, r),
     _hlPaint
@@ -92,6 +130,20 @@ export function drawWorld(
     );
   }
 
+  // Perfect glow blooms — behind the tower so they radiate from around the block.
+  for (let i = 0; i < world.pulses.length; i++) {
+    const p = world.pulses[i];
+    const intensity = p.intensity ?? 1;
+    const a = Math.min(1, p.life * GLOW_ALPHA * intensity);
+    _glowPaint.setColor(hslColor(180, 70, 70, a));
+    const gw = p.w * (0.9 + 0.3 * intensity);
+    const gr = Math.min(6, gw / 2);
+    canvas.drawRRect(
+      Skia.RRectXY(Skia.XYWHRect(p.sx - gw / 2, p.sy, gw, BLOCK_H), gr, gr),
+      _glowPaint
+    );
+  }
+
   for (let i = 0; i < world.blocks.length; i++) {
     const b = world.blocks[i];
     drawBlock(canvas, b.x, screenTop(i, world, H), b.width, hue(i), 1, b.squash ?? 0);
@@ -99,6 +151,22 @@ export function drawWorld(
 
   if (world.current) {
     const y = screenTop(world.blocks.length, world, H);
+    // Soft shadow on the active (sliding) block only — gives it depth above the
+    // stack. One blur per frame.
+    const sw = world.current.width * 0.92;
+    canvas.drawRRect(
+      Skia.RRectXY(
+        Skia.XYWHRect(
+          world.current.x + (world.current.width - sw) / 2,
+          y + BLOCK_H + 3,
+          sw,
+          BLOCK_H * 0.5
+        ),
+        6,
+        6
+      ),
+      _shadowPaint
+    );
     drawBlock(canvas, world.current.x, y, world.current.width, hue(world.blocks.length), 1, 0);
   }
 
@@ -111,6 +179,14 @@ export function drawWorld(
     canvas.restore();
   }
 
+  // Perfect-land dust
+  for (let i = 0; i < world.dust.length; i++) {
+    const d = world.dust[i];
+    _dustPaint.setColor(hslColor(195, 50, 85, Math.max(0, d.life)));
+    canvas.drawCircle(d.sx, d.sy, d.size, _dustPaint);
+  }
+
+  // Perfect shockwave ring (sharp, complements the soft glow)
   for (let i = 0; i < world.pulses.length; i++) {
     const p = world.pulses[i];
     const intensity = p.intensity ?? 1;
