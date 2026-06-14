@@ -129,6 +129,7 @@ export function drawWorld(
   // Perfect glow blooms — behind the tower so they radiate from around the block.
   for (let i = 0; i < world.pulses.length; i++) {
     const p = world.pulses[i];
+    if (p.sy > H || p.sy + BLOCK_H < 0) continue;
     const intensity = p.intensity ?? 1;
     const a = Math.min(1, p.life * GLOW_ALPHA * intensity);
     _glowPaint.setColor(hslColor(180, 70, 70, a));
@@ -140,9 +141,20 @@ export function drawWorld(
     );
   }
 
+  // Anchor: when block 0 has scrolled off the screen bottom, draw it clamped at
+  // H - BLOCK_H so the tower always appears to rise from a solid base. Block 0
+  // is drawn first (behind the rest of the tower); if it's wider than the sliced
+  // blocks above it, its sides peek out as a natural-looking wider foundation.
+  if (world.blocks.length > 0 && screenTop(0, world, H) > H) {
+    const base = world.blocks[0];
+    drawBlock(canvas, base.x, H - BLOCK_H, base.width, hue(0), 1, 0, false);
+  }
+
   for (let i = 0; i < world.blocks.length; i++) {
+    const y = screenTop(i, world, H);
+    if (y > H || y + BLOCK_H < 0) continue;
     const b = world.blocks[i];
-    drawBlock(canvas, b.x, screenTop(i, world, H), b.width, hue(i), 1, b.squash ?? 0, b.perfect ?? false);
+    drawBlock(canvas, b.x, y, b.width, hue(i), 1, b.squash ?? 0, b.perfect ?? false);
   }
 
   if (world.current) {
