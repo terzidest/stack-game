@@ -124,7 +124,12 @@ export function dropBlock(world: World, W: number, H: number): DropResult {
   if (Math.abs(c.x - below.x) <= PERFECT) {
     world.combo++;
     const intensity = 1 + Math.min(world.combo - 1, 4) * 0.4;
-    const newBlock: import("./types").Block = { x: below.x, width: below.width, squash: 1 };
+    const newBlock: import("./types").Block = {
+      x: below.x,
+      width: below.width,
+      squash: 1,
+      perfect: true,
+    };
     world.blocks.push(newBlock);
     const idx = world.blocks.length - 1;
     const sy = screenTop(idx, world, H);

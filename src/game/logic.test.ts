@@ -69,6 +69,7 @@ describe("dropBlock", () => {
     expect(world.blocks[1].width).toBe(below.width); // no shrink
     expect(world.blocks[1].x).toBe(below.x);
     expect(world.blocks[1].squash).toBe(1); // landing squash armed
+    expect(world.blocks[1].perfect).toBe(true); // drives the flash
     expect(world.debris).toHaveLength(0); // perfect never spawns debris
     expect(world.pulses).toHaveLength(1);
     expect(world.score).toBe(2); // first perfect = 1 + streak(1)
@@ -87,6 +88,7 @@ describe("dropBlock", () => {
     expect(world.blocks[1].x).toBe(140);
     expect(world.blocks[1].width).toBe(170);
     expect(world.blocks[1].squash).toBe(1);
+    expect(world.blocks[1].perfect).toBeFalsy(); // no flash on a normal land
     // Only a right overhang (360 > 310); left edges coincide at 140.
     expect(world.debris).toHaveLength(1);
     expect(world.debris[0].width).toBe(50);

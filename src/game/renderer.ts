@@ -65,7 +65,8 @@ function drawBlock(
   width: number,
   h: number,
   alpha: number,
-  squash: number = 0
+  squash: number = 0,
+  perfect: boolean = false
 ): void {
   "worklet";
   if (width <= 0) return;
@@ -96,8 +97,8 @@ function drawBlock(
     canvas.drawRRect(rect, _shadePaint);
   }
 
-  // Hit-pop: a freshly-landed block flashes white, fading as squash decays.
-  if (squash > 0) {
+  // Hit-pop: perfect landings flash white, fading as squash decays.
+  if (perfect && squash > 0) {
     _flashPaint.setColor(hslColor(0, 0, 100, squash * FLASH_ALPHA));
     canvas.drawRRect(rect, _flashPaint);
   }
@@ -141,7 +142,7 @@ export function drawWorld(
 
   for (let i = 0; i < world.blocks.length; i++) {
     const b = world.blocks[i];
-    drawBlock(canvas, b.x, screenTop(i, world, H), b.width, hue(i), 1, b.squash ?? 0);
+    drawBlock(canvas, b.x, screenTop(i, world, H), b.width, hue(i), 1, b.squash ?? 0, b.perfect ?? false);
   }
 
   if (world.current) {
