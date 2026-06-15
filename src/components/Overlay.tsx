@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
     padding: 24,
-    backgroundColor: "rgba(13, 15, 20, 0.85)",
+    backgroundColor: "rgba(10, 22, 44, 0.8)",
   },
   title: {
     fontSize: 46,

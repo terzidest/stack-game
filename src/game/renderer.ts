@@ -9,14 +9,35 @@ import {
   FLASH_ALPHA,
   GLOW_SIGMA,
   GLOW_ALPHA,
+  SKY_PX,
+  SKY_DARKEN_PER_PX,
+  SKY_DARKEN_MAX,
 } from "./constants";
 import { hue, screenTop } from "./logic";
 import type { World } from "./types";
 
 // Module-scope paints — created once, mutated before each draw call.
-const _bgPaint = Skia.Paint();
 const _bodyPaint = Skia.Paint();
 const _flashPaint = Skia.Paint(); // white hit-pop overlay (alpha set per draw)
+const _spacePaint = Skia.Paint(); // climb-darkening overlay (alpha set per frame)
+
+// Dusk sky: a vertical gradient (dark navy up top → indigo at the base). One
+// shader serves every frame; the span is fixed (SKY_PX) so it builds at module
+// scope like _shadePaint, and TileMode.Clamp holds the base color on taller
+// screens. The climb-toward-space darkening is a separate alpha overlay below.
+const _skyPaint = Skia.Paint();
+_skyPaint.setShader(
+  Skia.Shader.MakeLinearGradient(
+    { x: 0, y: 0 },
+    { x: 0, y: SKY_PX },
+    [
+      new Float32Array([0.114, 0.247, 0.431, 1]), // top  #1d3f6e — sky blue
+      new Float32Array([0.357, 0.561, 0.769, 1]), // base #5b8fc4 — light hazy blue
+    ],
+    [0, 1],
+    TileMode.Clamp
+  )
+);
 
 // Smooth vertical gradient as a hue-independent shading overlay: lighten the
 // top, darken the bottom. One shader serves every block (drawn in block-local
@@ -110,12 +131,19 @@ export function drawWorld(
   canvas: SkCanvas,
   world: World,
   W: number,
-  H: number
+  H: number,
+  floorH: number = H
 ): void {
   "worklet";
 
-  _bgPaint.setColor(Skia.Color("#0d0f14"));
-  canvas.drawRect(Skia.XYWHRect(0, 0, W, H), _bgPaint);
+  // The sky fills the full canvas (H, edge-to-edge); the tower sits on floorH —
+  // the visible floor above the Android nav bar (floorH === H on iOS).
+  canvas.drawRect(Skia.XYWHRect(0, 0, W, H), _skyPaint);
+  const dark = Math.min(SKY_DARKEN_MAX, world.cameraY * SKY_DARKEN_PER_PX);
+  if (dark > 0.001) {
+    _spacePaint.setColor(hslColor(230, 60, 5, dark));
+    canvas.drawRect(Skia.XYWHRect(0, 0, W, H), _spacePaint);
+  }
 
   const shaking = world.shake > 0.5;
   if (shaking) {
@@ -142,11 +170,11 @@ export function drawWorld(
 
   for (let i = 0; i < world.blocks.length; i++) {
     const b = world.blocks[i];
-    drawBlock(canvas, b.x, screenTop(i, world, H), b.width, hue(i), 1, b.squash ?? 0, b.perfect ?? false);
+    drawBlock(canvas, b.x, screenTop(i, world, floorH), b.width, hue(i), 1, b.squash ?? 0, b.perfect ?? false);
   }
 
   if (world.current) {
-    const y = screenTop(world.blocks.length, world, H);
+    const y = screenTop(world.blocks.length, world, floorH);
     drawBlock(canvas, world.current.x, y, world.current.width, hue(world.blocks.length), 1, 0);
   }
 

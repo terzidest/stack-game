@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo } from "react";
-import { StyleSheet, useWindowDimensions } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import type { LayoutChangeEvent } from "react-native";
+import { StyleSheet, View, useWindowDimensions } from "react-native";
 import { Canvas, Picture, Skia } from "@shopify/react-native-skia";
 import {
   useSharedValue,
@@ -19,6 +20,7 @@ import {
   spawnCurrent,
   updateWorld,
   dropBlock,
+  screenTop,
 } from "../game/logic";
 import { drawWorld } from "../game/renderer";
 import { useGameSounds } from "../game/sound";
@@ -33,6 +35,7 @@ interface Props {
   onPhaseChange: (phase: Phase) => void;
   onScoreChange: (score: number) => void;
   onComboChange: (combo: number) => void;
+  onScorePop: (gain: number, x: number, y: number, perfect: boolean) => void;
   onGameOver: (score: number, blocks: number, streak: number) => void;
 }
 
@@ -53,13 +56,34 @@ export default function GameCanvas({
   onPhaseChange,
   onScoreChange,
   onComboChange,
+  onScorePop,
   onGameOver,
 }: Props) {
-  const { width: W, height: H } = useWindowDimensions();
+  // Window dims seed the first frame, but the Canvas's measured layout is the
+  // source of truth for drawing: on Android (edge-to-edge) the window height
+  // excludes the navigation bar while the full-screen Canvas does not, so using
+  // window dims leaves an unpainted strip below the tower. onLayout corrects it.
+  const win = useWindowDimensions();
+  const [size, setSize] = useState({ width: win.width, height: win.height });
+  const W = size.width;
+  const H = size.height;
+  // The sky fills the full canvas (H, edge-to-edge), but gameplay anchors to a
+  // floor above the Android nav bar: the measured canvas height exceeds the
+  // window height by exactly the nav-bar inset, so the window height is the
+  // visible floor. On iOS the two match and floorH === H.
+  const floorH = Math.min(H, win.height);
+  const onCanvasLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setSize((prev) =>
+      prev.width === width && prev.height === height
+        ? prev
+        : { width, height }
+    );
+  }, []);
   const { playDrop, playPerfect } = useGameSounds();
 
   // All per-frame game state lives in a single shared value.
-  const world = useSharedValue(freshWorld(W, H));
+  const world = useSharedValue(freshWorld(W, floorH));
   const phaseRef = useSharedValue<Phase>("idle");
 
   // Sync React phase → worklet-readable shared value
@@ -70,16 +94,16 @@ export default function GameCanvas({
   // Re-init world on dimension change
   useEffect(() => {
     if (phaseRef.value !== "playing") {
-      world.value = freshWorld(W, H);
+      world.value = freshWorld(W, floorH);
     }
-  }, [W, H]);
+  }, [W, floorH]);
 
   // Restart from a React button (pause overlay): reset the world to a fresh game
   // when the nonce bumps. Deps are [restartNonce] only so a resize never restarts;
   // W/H are read from the current render's closure.
   useEffect(() => {
     if (restartNonce > 0) {
-      const w = freshWorld(W, H);
+      const w = freshWorld(W, floorH);
       spawnCurrent(w);
       world.value = w;
       phaseRef.value = "playing";
@@ -99,6 +123,11 @@ export default function GameCanvas({
     (c: number) => onComboChange(c),
     [onComboChange]
   );
+  const spawnPop = useCallback(
+    (gain: number, x: number, y: number, perfect: boolean) =>
+      onScorePop(gain, x, y, perfect),
+    [onScorePop]
+  );
 
   const playSoundJS = useCallback(
     (result: DropResult) => {
@@ -117,11 +146,11 @@ export default function GameCanvas({
       const dt = Math.min(50, info.timeSincePreviousFrame ?? 16);
       world.modify((w) => {
         "worklet";
-        updateWorld(w, W, H, dt);
+        updateWorld(w, W, floorH, dt);
         return w;
       });
     },
-    [W, H]
+    [W, floorH]
   );
   useFrameCallback(frameCallback);
 
@@ -129,9 +158,9 @@ export default function GameCanvas({
   const picture = useDerivedValue(() => {
     "worklet";
     const c = _rec.beginRecording(Skia.XYWHRect(0, 0, W, H));
-    drawWorld(c, world.value, W, H);
+    drawWorld(c, world.value, W, H, floorH);
     return _rec.finishRecordingAsPicture();
-  }, [W, H]);
+  }, [W, H, floorH]);
 
   // ---- TAP HANDLER (memoized) ----
   const tap = useMemo(
@@ -140,9 +169,10 @@ export default function GameCanvas({
         "worklet";
         if (phaseRef.value === "playing") {
           let result: DropResult = "miss";
+          const prevScore = world.value.score;
           world.modify((w) => {
             "worklet";
-            result = dropBlock(w, W, H);
+            result = dropBlock(w, W, floorH);
             return w;
           }, true);
 
@@ -153,6 +183,19 @@ export default function GameCanvas({
           // JS-thread queue ahead of the React state updates below.
           runOnJS(playSoundJS)(result);
           runOnJS(triggerHapticJS)(result);
+
+          // A landed block throws a "+N" that flies into the sun. Spawn data is
+          // derived here (tap frequency) from the just-placed block's position.
+          if (result !== "miss") {
+            const blocks = world.value.blocks;
+            const top = blocks[blocks.length - 1];
+            runOnJS(spawnPop)(
+              world.value.score - prevScore,
+              top.x + top.width / 2,
+              screenTop(blocks.length - 1, world.value, floorH),
+              result === "perfect"
+            );
+          }
 
           // Display/state updates can lag a frame without anyone noticing.
           runOnJS(setScore)(world.value.score);
@@ -172,7 +215,7 @@ export default function GameCanvas({
         ) {
           // idle or over → start a new game. ("paused" is a deliberate no-op;
           // resume happens via the pause overlay button.)
-          const w = freshWorld(W, H);
+          const w = freshWorld(W, floorH);
           spawnCurrent(w);
           world.value = w;
           phaseRef.value = "playing";
@@ -181,14 +224,16 @@ export default function GameCanvas({
           runOnJS(setCombo)(0);
         }
       }),
-    [W, H, setPhase, setScore, setCombo, playSoundJS, onGameOver]
+    [W, floorH, setPhase, setScore, setCombo, spawnPop, playSoundJS, onGameOver]
   );
 
   return (
     <GestureDetector gesture={tap}>
-      <Canvas style={styles.canvas}>
-        <Picture picture={picture} />
-      </Canvas>
+      <View style={styles.canvas} onLayout={onCanvasLayout}>
+        <Canvas style={StyleSheet.absoluteFill}>
+          <Picture picture={picture} />
+        </Canvas>
+      </View>
     </GestureDetector>
   );
 }
@@ -196,6 +241,6 @@ export default function GameCanvas({
 const styles = StyleSheet.create({
   canvas: {
     flex: 1,
-    backgroundColor: "#0d0f14",
+    backgroundColor: "#1d3f6e",
   },
 });
