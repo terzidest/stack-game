@@ -48,7 +48,7 @@ tower on a mid/low-end Android. *(met — validated on a Galaxy A53)*
 
 ---
 
-## Phase 2 — Complete the loop 🔄
+## Phase 2 — Complete the loop ✅
 
 Everything a stranger needs to pick it up, replay, and come back.
 
@@ -57,13 +57,37 @@ Everything a stranger needs to pick it up, replay, and come back.
 - ✅ Settings: sound and haptics toggles — persisted, gate the feedback
   side-effects, reachable via a gear on the idle/over screens
 - ✅ Pause / resume, clean restart flow — pause button during play; overlay with
-  Resume (continues from the frozen state) and Restart (fresh game)
-- ⬜ First-run nicety (the idle screen already covers most of this)
+  Resume (continues from the frozen state) and Restart (fresh game); game-over
+  replay gated to the retry button so spam-tapping can't accidentally restart
+- ⬜ First-run nicety *(optional — the idle screen already covers this; deferred)*
 - ✅ Difficulty tuning pass — gentler speed ramp (`SPEED_STEP` 0.011→0.006, cap
   at score ~55 instead of 30) for more mid-game breathing room; perfect window
   kept tight on purpose. Playtested on the A53; curve pinned by unit tests.
 
-**Exit:** a complete, satisfying, self-explanatory game loop.
+**Exit:** a complete, satisfying, self-explanatory game loop. *(met)*
+
+---
+
+## Phase 2.5 — Visual identity & juice ✅
+
+Polish beyond the MVP bar that gives the game a recognizable look and feel.
+Layered onto the existing structure (renderer + React UI); no architecture change.
+
+- ✅ Block FX — vertical gradient shading, perfect-drop glow bloom + white
+  hit-pop flash, landing squash (#7)
+- ✅ Tempered streak scoring + game-over stats (score, blocks, longest streak)
+- ✅ Daylight sky — vertical gradient that darkens toward space as the camera
+  climbs; renders edge-to-edge with a nav-bar-aware gameplay floor on Android (#9)
+- ✅ Sun score HUD — the score sits inside a sun that brightens and swells as it
+  climbs (#9)
+- ✅ "+N" score popups — each landed block throws a number that converges into
+  the sun and fades; gold on perfects, white on placed (#9)
+- ✅ Daylight menu refresh — start / game-over / pause / settings brought into the
+  same daylight world: glass panels, sun motif (sun hero on start, final score in a
+  sun on game-over), gold buttons, shared `theme.ts` + `Sun`/`PillButton`/`ModalCard`
+  components, entrance animations (#10)
+
+**Exit:** a cohesive visual identity across gameplay and menus. *(met)*
 
 ---
 
