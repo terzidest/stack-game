@@ -209,12 +209,10 @@ export default function GameCanvas({
               world.value.maxCombo
             );
           }
-        } else if (
-          phaseRef.value === "idle" ||
-          phaseRef.value === "over"
-        ) {
-          // idle or over → start a new game. ("paused" is a deliberate no-op;
-          // resume happens via the pause overlay button.)
+        } else if (phaseRef.value === "idle") {
+          // idle → start a new game on a tap anywhere. ("over" deliberately does
+          // NOT start here — retry is the explicit button only, so spam-tapping
+          // after a loss can't accidentally replay. "paused" resumes via its button.)
           const w = freshWorld(W, floorH);
           spawnCurrent(w);
           world.value = w;

@@ -1,6 +1,16 @@
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useEffect } from "react";
+import { StyleSheet, Text } from "react-native";
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import type { Phase } from "../game/types";
+import Sun, { sunFor } from "./Sun";
+import PillButton from "./PillButton";
+import { theme } from "./theme";
 
 interface Props {
   phase: Phase;
@@ -9,6 +19,7 @@ interface Props {
   streak: number;
   best: number;
   newRecord: boolean;
+  onRetry: () => void;
 }
 
 export default function Overlay({
@@ -18,37 +29,64 @@ export default function Overlay({
   streak,
   best,
   newRecord,
+  onRetry,
 }: Props) {
-  if (phase === "playing") return null;
+  // Mount-time fade + rise. The component only mounts on idle/over, so this fires
+  // on each transition into a menu.
+  const t = useSharedValue(0);
+  useEffect(() => {
+    t.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.quad) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const appear = useAnimatedStyle(() => {
+    "worklet";
+    return {
+      opacity: t.value,
+      transform: [{ translateY: interpolate(t.value, [0, 1], [12, 0]) }],
+    };
+  });
 
+  // Only the start and game-over screens. Critically NOT "paused" — otherwise the
+  // start menu would show behind the pause panel.
+  if (phase !== "idle" && phase !== "over") return null;
   const isOver = phase === "over";
 
   return (
-    <View style={styles.container} pointerEvents="none">
-      <Text style={styles.title}>{isOver ? "GAME OVER" : "STACK"}</Text>
-      <Text style={styles.subtitle}>
-        {isOver
-          ? `Score ${score} · stacked ${blocks} ${blocks === 1 ? "block" : "blocks"}`
-          : "Tap to drop a block.\nLine it up. Don't miss."}
-      </Text>
-      {isOver && streak >= 1 && (
-        <Text style={styles.streak}>Longest perfect streak: {streak}</Text>
-      )}
+    // Over: capture taps (auto) so the only way to replay is the retry button.
+    // Idle: let taps fall through (none) so tapping anywhere starts the game.
+    <Animated.View
+      style={[styles.container, appear]}
+      pointerEvents={isOver ? "auto" : "none"}
+    >
       {isOver ? (
-        newRecord ? (
-          <Text style={styles.record}>★ New best — {score}</Text>
-        ) : (
-          <Text style={styles.best}>Best: {best}</Text>
-        )
+        <>
+          <Text style={styles.title}>GAME OVER</Text>
+          <Sun size={140} {...sunFor(score)}>
+            <Text style={styles.sunScore}>{score}</Text>
+          </Sun>
+          <Text style={styles.stat}>
+            ★ {newRecord ? "New best" : "Best score"}: {best}
+          </Text>
+          {streak >= 1 && (
+            <Text style={styles.stat}>★ Longest perfect streak: {streak}</Text>
+          )}
+          <Text style={styles.stat}>
+            ★ Stacked {blocks} {blocks === 1 ? "block" : "blocks"}
+          </Text>
+          <PillButton label="Tap to retry" onPress={onRetry} />
+        </>
       ) : (
-        best > 0 && <Text style={styles.best}>Best: {best}</Text>
+        <>
+          <Sun size={120} />
+          <Text style={styles.title}>STACK</Text>
+          <Text style={styles.subtitle}>
+            Tap to drop a block.{"\n"}Line it up. Don't miss.
+          </Text>
+          {best > 0 && <Text style={styles.best}>Best score: {best}</Text>}
+          <PillButton label="Tap to start" />
+        </>
       )}
-      <View style={styles.cta}>
-        <Text style={styles.ctaText}>
-          {isOver ? "Tap to retry" : "Tap to start"}
-        </Text>
-      </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -61,50 +99,40 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: "center",
     alignItems: "center",
-    gap: 14,
+    gap: 16,
     padding: 24,
-    backgroundColor: "rgba(10, 22, 44, 0.8)",
+    backgroundColor: theme.scrimSoft,
   },
   title: {
     fontSize: 46,
     fontWeight: "500",
     letterSpacing: 6,
+    color: theme.text,
+  },
+  sunScore: {
+    fontSize: 34,
+    fontWeight: "700",
     color: "#fff",
+    letterSpacing: -1,
   },
   subtitle: {
     fontSize: 15,
     lineHeight: 24,
-    color: "#9aa3b8",
+    color: theme.textSoft,
     textAlign: "center",
     maxWidth: 280,
   },
-  streak: {
-    fontSize: 14,
-    color: "#ffd700",
+  // Game-over stat lines — shared gold + star treatment.
+  stat: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: theme.gold,
     letterSpacing: 0.3,
   },
   best: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#9aa3b8",
+    color: theme.textSoft,
     letterSpacing: 0.5,
-  },
-  record: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#ffd700",
-    letterSpacing: 0.5,
-  },
-  cta: {
-    marginTop: 6,
-    paddingHorizontal: 26,
-    paddingVertical: 11,
-    borderRadius: 999,
-    backgroundColor: "#fff",
-  },
-  ctaText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#0d0f14",
   },
 });
