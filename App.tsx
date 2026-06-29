@@ -111,19 +111,20 @@ export default function App() {
           streak={lastStreak}
           best={best}
           newRecord={newRecord}
+          onRetry={handleRestart}
         />
         {(phase === "idle" || phase === "over") && (
           <Pressable
-            style={styles.corner}
+            style={styles.iconButton}
             hitSlop={12}
             onPress={() => setSettingsOpen(true)}
           >
-            <Text style={styles.cornerIcon}>⚙</Text>
+            <Text style={styles.gearIcon}>⚙</Text>
           </Pressable>
         )}
         {phase === "playing" && (
           <Pressable
-            style={styles.pauseButton}
+            style={styles.iconButton}
             hitSlop={12}
             onPress={handlePause}
           >
@@ -158,20 +159,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#1d3f6e",
   },
-  corner: {
-    position: "absolute",
-    top: 56,
-    right: 22,
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cornerIcon: {
-    fontSize: 24,
-    color: "#9aa3b8",
-  },
-  pauseButton: {
+  // Shared corner control — a translucent round button (pause bars / settings gear).
+  iconButton: {
     position: "absolute",
     top: 56,
     right: 22,
@@ -191,5 +180,9 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 2,
     backgroundColor: "#eaf2ff",
+  },
+  gearIcon: {
+    fontSize: 22,
+    color: "#eaf2ff",
   },
 });
