@@ -1,0 +1,9 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Splash mark: the gold sun, centered on a transparent canvas (shown over the
+       splash backgroundColor #1d3f6e set in app.json). -->
+  <g transform="translate(512 512)">
+    <circle r="300" fill="#ffd76e" opacity="0.16"/>
+    <circle r="232" fill="#ffd76e" opacity="0.28"/>
+    <circle r="168" fill="#ffe08a"/>
+  </g>
+</svg>

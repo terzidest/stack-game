@@ -5,19 +5,35 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0d0f14",
+    "backgroundColor": "#1d3f6e",
+    "primaryColor": "#ffd76e",
+    "scheme": "stack",
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.stack.game"
+      "bundleIdentifier": "com.stack.game",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.stack.game",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#0d0f14"
-      },
-      "package": "com.stack.game"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1d3f6e"
+      }
     },
     "plugins": [
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#1d3f6e"
+        }
+      ],
+      "expo-asset"
     ]
   }
 }

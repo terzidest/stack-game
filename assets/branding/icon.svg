@@ -1,0 +1,26 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Full-bleed app icon: daylight sky + gold sun + stacked tower.
+       Mirrors the in-game palette (renderer.ts sky, theme.ts gold). -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d3f6e"/>
+      <stop offset="1" stop-color="#5b8fc4"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#sky)"/>
+
+  <!-- Sun: concentric gold discs, echoing the HUD sun. -->
+  <g transform="translate(512 392)">
+    <circle r="232" fill="#ffd76e" opacity="0.18"/>
+    <circle r="180" fill="#ffd76e" opacity="0.30"/>
+    <circle r="132" fill="#ffe08a"/>
+  </g>
+
+  <!-- Stacked tower: rounded blocks, slightly offset to read as a stack. -->
+  <g>
+    <rect x="320" y="772" width="384" height="84" rx="18" fill="#7ec8a9"/>
+    <rect x="356" y="688" width="320" height="84" rx="18" fill="#f2c14e"/>
+    <rect x="392" y="604" width="248" height="84" rx="18" fill="#e8825a"/>
+  </g>
+</svg>
